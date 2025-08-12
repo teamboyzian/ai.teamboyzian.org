@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>InfoSeeker — Team Boyzian</title>
+<style>
+  body{margin:0;font-family:Arial, sans-serif;background:linear-gradient(-45deg,#0f172a,#1e3a8a,#0ea5a9,#f97316);background-size:400% 400%;animation:gradientBG 14s ease infinite;color:white;display:flex;flex-direction:column;min-height:100vh;justify-content:flex-start;align-items:center}
+  @keyframes gradientBG{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+  .container{width:94%;max-width:720px;margin-top:36px;background:rgba(0,0,0,0.45);padding:18px;border-radius:12px;box-shadow:0 8px 24px rgba(5,10,25,0.4)}
+  h1{margin:6px 0;font-size:28px;letter-spacing:0.6px}
+  h3{margin:0 0 12px 0;font-weight:400;color:#e6eef8}
+  input{width:100%;padding:12px 14px;border-radius:8px;border:0;font-size:16px;margin-bottom:12px}
+  .controls{display:flex;flex-wrap:wrap;gap:8px}
+  .btn{padding:10px 14px;border-radius:8px;border:0;background:#06b6d4;color:#04203a;cursor:pointer;font-weight:600}
+  .btn.secondary{background:#7c3aed;color:#fff}
+  #result{margin-top:12px;background:rgba(255,255,255,0.04);padding:14px;border-radius:8px;text-align:left;color:#fff;min-height:60px}
+  .loading{opacity:0.9;color:#fff;font-style:italic}
+  footer{width:100%;max-width:720px;margin-top:18px;background:rgba(0,0,0,0.45);padding:10px;border-radius:8px;font-size:13px;color:#f1f5f9;text-align:center}
+  a.verify{color:#ffe082}
+  .small{font-size:13px;color:#cfe9f2}
+  @media (max-width:420px){h1{font-size:22px}}
+</style>
+</head>
+<body>
+  <div class="container" role="main">
+    <h1>InfoSeeker</h1>
+    <h3>Ask, Search & Learn</h3>
+
+    <input id="query" type="text" placeholder="Type your question in Bangla or English" aria-label="Question input">
+
+    <div class="controls">
+      <button class="btn" onclick="askAI()">Ask InfoSeeker (AI)</button>
+      <button class="btn secondary" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div id="result"><div class="small">Results will appear here. InfoSeeker aims to be factual; if unsure it will say "I am not certain".</div></div>
+  </div>
+
+  <footer>
+    <p>Team Boyzian | All Rights Reserved</p>
+    <p><em>InfoSeeker may make mistakes. Please be cautious.</em></p>
+  </footer>
+
+<script>
+/*
+  IMPORTANT:
+  - After you deploy backend (Vercel), set API_BASE to: https://YOUR_VERCEL_URL/api/ask
+  - Do NOT put your OpenAI key here in frontend.
+*/
+const API_BASE = "https://ai-teamboyzian-org.vercel.app/api/ask"; // <-- REPLACE after deploy
+
+function detectBangla(text){
+  return /[\u0980-\u09FF]/.test(text);
+}
+
+function clearAll(){
+  document.getElementById('query').value = '';
+  document.getElementById('result').innerHTML = '<div class="small">Results will appear here. InfoSeeker aims to be factual; if unsure it will say "I am not certain".</div>';
+}
+
+async function askAI(){
+  const q = document.getElementById('query').value.trim();
+  const resultDiv = document.getElementById('result');
+  if(!q){ alert('Please enter a question.'); return; }
+
+  resultDiv.innerHTML = '<div class="loading">Asking InfoSeeker... (this may take a few seconds)</div>';
+
+  const lang = detectBangla(q) ? 'bn' : 'en';
+  try {
+    const resp = await fetch(API_BASE, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ question: q, lang })
+    });
+    const data = await resp.json();
+    if(resp.status !== 200 || data.error){
+      resultDiv.innerHTML = `<div><strong>Error:</strong> ${data.error || 'Failed to get response.'}</div>`;
+      return;
+    }
+    // Show returned text. We try to highlight "How to verify" and "Confidence" if present.
+    let ans = data.answer || '';
+    // safe HTML escape minimal, then simple formatting
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const ansEsc = esc(ans).replace(/\n/g,'<br>');
+
+    // try to find confidence line
+    const confMatch = ans.match(/Confidence:\s*(High|Medium|Low)/i) || ans.match(/Confidence：\s*(High|Medium|Low)/i);
+    const conf = confMatch ? confMatch[0] : null;
+
+    // try to separate "How to verify" part
+    const verifyIdx = ans.toLowerCase().indexOf('how to verify');
+    let mainPart = ans, verifyPart = '';
+    if (verifyIdx !== -1) {
+      mainPart = ans.substring(0, verifyIdx);
+      verifyPart = ans.substring(verifyIdx);
+    } else {
+      // also check Bangla "যাচাই" keyword
+      const bnIdx = ans.indexOf('যাচাই');
+      if(bnIdx !== -1){
+        mainPart = ans.substring(0, bnIdx);
+        verifyPart = ans.substring(bnIdx);
+      }
+    }
+
+    resultDiv.innerHTML = `
+      <div><strong>Answer:</strong><div style="margin-top:6px">${esc(mainPart).replace(/\n/g,'<br>')}</div></div>
+      ${verifyPart ? `<div style="margin-top:10px"><strong>How to verify:</strong><div class="small" style="margin-top:6px">${esc(verifyPart)}</div></div>` : ''}
+      ${conf ? `<div style="margin-top:10px"><strong>${esc(conf)}</strong></div>` : ''}
+      <div style="margin-top:12px" class="small">Model: ${esc(data.model || 'unknown')}</div>
+    `;
+  } catch (err) {
+    console.error(err);
+    resultDiv.innerHTML = '<div><strong>Error:</strong> Failed to reach server. Check your deployment and API_BASE setting.</div>';
+  }
+}
+</script>
+</body>
+</html>
