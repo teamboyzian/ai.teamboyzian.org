@@ -19,6 +19,7 @@ project-root/ api/ ask.js         # Serverless API function public/ index.html  
 1. Clone this repository:
 ```bash
 git clone https://github.com/teamboyzian/ai.teamboyzian.org.git
+
 2. Set up environment variables:
 
 
