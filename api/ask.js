@@ -1,4 +1,4 @@
-here// api/ask.js
+// api/ask.js
 // Place under /api in your repo for Vercel serverless functions.
 // Make sure to set OPENAI_API_KEY in Vercel project env vars.
 
