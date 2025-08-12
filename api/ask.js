@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     if (!question) return res.status(400).json({ error: "Question is required." });
 
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+    const MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
     if (!OPENAI_API_KEY) {
       return res.status(500).json({ error: "OpenAI API key not configured on server." });
